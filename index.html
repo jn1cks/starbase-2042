@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061018">
+<meta name="description" content="Starbase 2042. Fly one rocket, earn flight data, and fit a lighter structure, a stronger engine, then a first warp tap.">
+<title>Starbase 2042</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23061018' width='32' height='32'/%3E%3Cpath fill='%23e7e1d6' d='M16 2l4 9h-3v10h-2V11h-3z'/%3E%3Cpath fill='%236ad7ff' d='M10 23h12l-2 5H12z'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #061018;
+    --ink: #e7f2f6;
+    --muted: #93aeb8;
+    --cyan: #7adfff;
+    --line: rgba(150, 200, 214, 0.28);
+    --panel: #0c1822;
+    --amber: #f0c36a;
+    --good: #9cf0c8;
+    --bad: #ff8d84;
+    --violet: #d2c2ff;
+    --sans: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: var(--sans);
+    -webkit-text-size-adjust: 100%;
+    overflow: hidden;
+  }
+  button, input { font: inherit; color: inherit; }
+  button {
+    background: #132833;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    min-height: 52px;
+    padding: 0 12px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  button:disabled { color: #6d858f; cursor: not-allowed; }
+  button.primary { background: #dff7ff; color: #062028; border-color: #dff7ff; font-weight: 700; }
+  button.on { color: var(--cyan); border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan); }
+  button.warp-ready { background: #2a2348; border-color: #cbbdff; color: var(--violet); }
+  button.warp-hot { background: #3a2870; border-color: #efe6ff; color: white; }
+  button.ghost { background: transparent; min-height: 44px; }
+  [hidden] { display: none !important; }
+  #app {
+    height: 100vh;
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+    background: #07131b;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .mark {
+    width: 16px; height: 26px; flex: none;
+    background: #e7e1d6;
+    clip-path: polygon(50% 0, 78% 28%, 64% 28%, 64% 72%, 88% 100%, 12% 100%, 36% 72%, 36% 28%, 22% 28%);
+  }
+  h1 { font-size: 17px; line-height: 1.1; margin: 0; font-weight: 650; letter-spacing: 0.01em; white-space: nowrap; }
+  #sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .head-spacer { flex: 1; }
+  #muteBtn { min-height: 44px; padding: 0 12px; }
+  .budget { text-align: right; min-width: 0; }
+  .budget span { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .budget strong {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  #body { min-height: 0; display: flex; flex-direction: column; }
+  #viewport { position: relative; flex: 1 1 auto; min-height: 180px; background: #02060c; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #hud {
+    position: absolute; top: 8px; left: 8px; right: 8px;
+    display: flex; gap: 6px; pointer-events: none;
+  }
+  .stat {
+    flex: 1; min-width: 0;
+    background: rgba(5, 12, 18, 0.62);
+    border: 1px solid rgba(150, 200, 214, 0.22);
+    border-radius: 10px;
+    padding: 6px 8px 7px;
+  }
+  .stat .k { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .stat .v {
+    display: block;
+    font-family: var(--mono);
+    font-size: clamp(18px, 3.5vw, 28px);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+  .stat .s { display: block; color: var(--muted); font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  #director {
+    position: absolute; left: 50%; top: 78px; transform: translateX(-50%);
+    width: min(460px, calc(100% - 20px));
+    margin: 0; text-align: center; font-size: 15px; line-height: 1.35;
+    text-shadow: 0 1px 2px #000, 0 0 10px #000;
+    pointer-events: none;
+  }
+  #plate {
+    position: absolute; left: 8px; right: 8px; bottom: 8px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 10px;
+    padding: 7px 10px 8px;
+    background: rgba(5, 12, 18, 0.78);
+    border: 1px solid rgba(150, 200, 214, 0.28);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+  #plate .cell span { display: block; color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  #plate .cell b {
+    display: block; font-family: var(--mono); font-size: 16px; font-weight: 600;
+    color: var(--cyan); font-variant-numeric: tabular-nums;
+  }
+  #plate .cell.hot b { color: white; text-shadow: 0 0 12px var(--cyan); }
+  #plate .cell.warn b { color: var(--amber); }
+  #plate .cell.bad b { color: var(--bad); }
+  .fuelwrap { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+  .bar { flex: 1; height: 10px; border-radius: 99px; background: #1a3038; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #1d6d86, var(--cyan)); }
+  #fuelLabel { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+  #panel {
+    overflow: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    padding: 12px 12px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  #panel h2 { margin: 14px 0 8px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+  #panel h2:first-child { margin-top: 0; }
+  .coach { margin: 0 0 10px; color: var(--ink); font-size: 15px; line-height: 1.4; }
+  .specs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0; }
+  .specs div span { display: block; color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .specs div b { font-family: var(--mono); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .specs div i { display: block; color: var(--muted); font-style: normal; font-size: 12px; }
+  .tree { display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px 12px;
+    background: #0e1e28;
+  }
+  .card.owned { border-color: rgba(122, 223, 255, 0.7); }
+  .card header { display: flex; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: none; align-items: baseline; }
+  .card header strong { font-size: 16px; }
+  .card header em { font-style: normal; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .card p { margin: 6px 0 8px; color: var(--muted); font-size: 14px; line-height: 1.35; }
+  .delta { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .delta th { text-align: left; color: var(--muted); font-weight: 500; padding: 2px 8px 2px 0; }
+  .delta td { font-family: var(--mono); text-align: right; padding: 2px 0 2px 8px; }
+  .delta td.now { color: var(--muted); }
+  .card button { width: 100%; margin-top: 10px; }
+  .records { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 0; }
+  .records div span { display: block; color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .records div b { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; min-height: 44px; display: flex; align-items: center; }
+  .marks { list-style: none; padding: 0; margin: 0 0 8px; }
+  .marks li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(150,200,214,0.12); font-size: 14px; }
+  .marks li.got { color: var(--good); }
+  .save-note { color: var(--bad); font-size: 14px; }
+  #deck {
+    border-top: 1px solid var(--line);
+    background: #07141c;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+  #launch { width: 100%; min-height: 60px; font-size: 18px; }
+  #deck-flight { display: grid; gap: 8px; }
+  .field { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .field b, .field #cue { font-family: var(--mono); color: var(--ink); letter-spacing: 0; text-transform: none; font-size: 14px; font-weight: 600; }
+  .row { display: flex; gap: 8px; }
+  .row > button { flex: 1; padding: 0 6px; }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 44px; background: transparent; margin: 0; touch-action: none;
+  }
+  input[type="range"]::-webkit-slider-runnable-track { height: 10px; background: #1c3844; border-radius: 99px; }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 36px; height: 36px; margin-top: -13px;
+    border-radius: 50%; background: #f4fdff; border: 2px solid var(--cyan);
+  }
+  input[type="range"]::-moz-range-track { height: 10px; background: #1c3844; border-radius: 99px; border: 0; }
+  input[type="range"]::-moz-range-thumb { width: 36px; height: 36px; border-radius: 50%; background: #f4fdff; border: 2px solid var(--cyan); }
+  .keys { margin: 0; color: var(--muted); font-size: 12px; }
+  #debrief {
+    position: fixed; inset: 0; z-index: 6;
+    background: rgba(3, 8, 12, 0.78);
+    display: grid; place-items: center;
+    padding: 16px;
+  }
+  #debrief .card {
+    width: min(580px, 100%);
+    max-height: min(92dvh, 820px);
+    overflow: auto;
+    background: #0c1822;
+    border-radius: 16px;
+    padding: 16px;
+  }
+  #debrief h2 { margin: 0 0 4px; font-size: clamp(22px, 4vw, 30px); letter-spacing: 0; text-transform: none; color: var(--ink); }
+  #debrief .lesson { margin: 8px 0 12px; font-size: 16px; line-height: 1.4; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 0 0 12px; }
+  .grid2 div span { display: block; color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .grid2 div b { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+  .money-lines { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+  .money-lines th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 8px 3px 0; }
+  .money-lines td { text-align: right; font-family: var(--mono); padding: 3px 0; }
+  .money-lines tr.total th, .money-lines tr.total td { color: var(--cyan); font-size: 16px; padding-top: 6px; }
+  .compare { color: var(--muted); font-size: 14px; line-height: 1.4; }
+  .next-buy { color: var(--amber); font-size: 15px; }
+  .debrief-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .debrief-actions button { flex: 1; }
+  #vignette { position: absolute; inset: 0; pointer-events: none; }
+  #vignette.warp { box-shadow: inset 0 0 90px rgba(170, 130, 255, 0.45); }
+  @media (min-width: 980px) {
+    #app { grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr) auto; }
+    header { grid-column: 1 / -1; grid-row: 1; }
+    #body { display: contents; }
+    #viewport { grid-column: 1; grid-row: 2; min-height: 0; }
+    #panel { grid-column: 2; grid-row: 2; border-top: 0; border-left: 1px solid var(--line); }
+    #deck { grid-column: 1 / -1; grid-row: 3; }
+    body.flight #panel { display: block; }
+  }
+  body.pad #hud, body.pad #plate { display: none; }
+  body.pad #director { top: 12px; }
+  @media (max-width: 979px) {
+    body.pad #viewport { flex: 0 0 auto; height: 34dvh; min-height: 200px; }
+    body.flight #panel { display: none; }
+  }
+  @media (max-height: 760px) {
+    #deck button { min-height: 46px; }
+    input[type="range"] { height: 36px; }
+  }
+  .delta thead th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .delta td.next { color: var(--cyan); font-weight: 650; }
+  @media (min-width: 800px) {
+    #deck-flight { grid-template-columns: 1.15fr 1fr; }
+    #deck-flight .span { grid-column: 1 / -1; }
+    .keys { grid-column: 1 / -1; }
+  }
+  @media (max-height: 520px) and (orientation: landscape) {
+    body.pad #viewport { height: auto; flex: 1; }
+    #body { flex-direction: row; }
+    #panel { flex: 0 0 46%; border-top: 0; border-left: 1px solid var(--line); }
+    body.flight #panel { display: none; }
+    header { padding-top: 6px; padding-bottom: 6px; }
+    #director { top: 64px; }
+  }
+  @media (pointer: coarse) { .keys { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  @keyframes attention {
+    50% { box-shadow: 0 0 0 4px rgba(122, 223, 255, 0.35); }
+  }
+  .attention { animation: attention 1.4s ease-in-out infinite; }
+</style>
+</head>
+<body class="pad">
+<div id="app">
+  <header>
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>Starbase 2042</h1>
+        <p id="sub">Vesper-1 · Pad 01</p>
+      </div>
+    </div>
+    <div class="head-spacer"></div>
+    <button id="muteBtn" type="button" aria-pressed="false">Sound</button>
+    <div class="budget">
+      <span id="headLabel">Budget</span>
+      <strong id="headValue">$0</strong>
+    </div>
+  </header>
+  <div id="body">
+    <div id="viewport">
+      <canvas id="view" aria-hidden="true"></canvas>
+      <div id="vignette"></div>
+      <div id="hud">
+        <div class="stat"><span class="k">Altitude</span><span class="v" id="altRead">0 m</span><span class="s" id="vupRead">0 m/s up</span></div>
+        <div class="stat"><span class="k">Speed</span><span class="v" id="spdRead">0 m/s</span><span class="s" id="machRead">downrange 0 m</span></div>
+        <div class="stat"><span class="k">Cutoff apo</span><span class="v" id="apoRead">—</span><span class="s" id="cueRead">range cue 0°</span></div>
+      </div>
+      <p id="director" aria-live="polite"></p>
+      <div id="plate">
+        <div class="cell" id="c1"><span id="p1k">Dry mass</span><b id="p1v">—</b></div>
+        <div class="cell" id="c2"><span id="p2k">Thrust</span><b id="p2v">—</b></div>
+        <div class="cell" id="c3"><span id="p3k">Liftoff TWR</span><b id="p3v">—</b></div>
+        <div class="cell" id="c4"><span id="p4k">Delta-v</span><b id="p4v">—</b></div>
+        <div class="cell" id="c5"><span id="p5k">Q limit</span><b id="p5v">—</b></div>
+        <div class="cell" id="c6"><span id="p6k">Local g</span><b id="p6v">—</b></div>
+        <div class="fuelwrap"><div class="bar" aria-hidden="true"><i id="fuelFill"></i></div><span id="fuelLabel">Fuel 100%</span></div>
+      </div>
+    </div>
+    <aside id="panel"></aside>
+  </div>
+  <div id="deck">
+    <div id="deck-pad">
+      <button id="launch" class="primary" type="button">Launch</button>
+    </div>
+    <div id="deck-flight" hidden>
+      <div>
+        <div class="field"><span>Throttle</span><b id="throttleRead">0%</b></div>
+        <input id="throttle" type="range" min="0" max="100" value="0" aria-label="Throttle">
+        <div class="row">
+          <button type="button" data-throttle="0">Idle</button>
+          <button type="button" data-throttle="0.65">65%</button>
+          <button type="button" data-throttle="1" id="fullBtn">Full</button>
+        </div>
+      </div>
+      <div>
+        <div class="field"><span>Pitch east</span><b id="pitchRead">cmd 0°</b></div>
+        <div class="row" id="pitchRow">
+          <button type="button" data-pitch="0">0°</button>
+          <button type="button" data-pitch="15">15°</button>
+          <button type="button" data-pitch="30">30°</button>
+          <button type="button" data-pitch="45">45°</button>
+          <button type="button" data-pitch="70">70°</button>
+        </div>
+        <div class="row" id="timeRow">
+          <button type="button" data-time="1">1×</button>
+          <button type="button" data-time="8">8×</button>
+          <button type="button" data-time="80">80×</button>
+        </div>
+      </div>
+      <div class="row span">
+        <button type="button" id="warpBtn">Warp</button>
+        <button type="button" id="logBtn">Scrub</button>
+      </div>
+      <p class="keys">W/S throttle · A/D pitch · 1/2/3 time · F warp · Enter launch · M mute</p>
+    </div>
+  </div>
+</div>
+<div id="debrief" hidden></div>
+<script>
+"use strict";
+const G0 = 9.80665;
+const R_EARTH = 6371000;
+const MU = G0 * R_EARTH * R_EARTH;
+const LENGTH = 32;
+const TAIL = LENGTH / 2;
+const RADIUS = 1.55;
+const CD = 0.48;
+const AREA = Math.PI * RADIUS * RADIUS;
+const PITCH_RATE = 36 * Math.PI / 180;
+const SAVE_KEY = "starbase2042-v1";
+const PRICES = { lattice: 1750000, torch: 3900000, warp: 8000000 };
+const WARP_ACCEL = 180;
+const WARP_SECS = 8;
+const WARP_ALT = 48000;
+const MARKS = [
+  { id: "a10", label: "10 km", pay: 75000, test: (s) => s.maxAlt >= 10000 },
+  { id: "a30", label: "30 km", pay: 100000, test: (s) => s.maxAlt >= 30000 },
+  { id: "a80", label: "80 km", pay: 120000, test: (s) => s.maxAlt >= 80000 },
+  { id: "a100", label: "Karman line, 100 km", pay: 180000, test: (s) => s.maxAlt >= 100000 },
+  { id: "a200", label: "200 km", pay: 220000, test: (s) => s.maxAlt >= 200000 },
+  { id: "a400", label: "400 km", pay: 350000, test: (s) => s.maxAlt >= 400000 },
+  { id: "s1000", label: "1,000 m/s", pay: 80000, test: (s) => s.maxSpd >= 1000 },
+  { id: "s2000", label: "2,000 m/s", pay: 140000, test: (s) => s.maxSpd >= 2000 },
+  { id: "s3000", label: "3,000 m/s", pay: 180000, test: (s) => s.maxSpd >= 3000 },
+  { id: "d100", label: "100 km downrange", pay: 100000, test: (s) => s.maxDown >= 100000 },
+  { id: "d500", label: "500 km downrange", pay: 180000, test: (s) => s.maxDown >= 500000 },
+  { id: "warp", label: "Warp tap fired", pay: 250000, test: (s) => s.warpFired }
+];
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("view");
+const ctx = canvas.getContext("2d");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let save = loadSave();
+let saveOk = true;
+let phase = "pad";
+let veh = specs(save);
+let px = 0, py = R_EARTH + TAIL, vx = 0, vy = 0;
+let pitch = 0, pitchCmd = 0, throttle = 0;
+let fuel = veh.fuel, mass = veh.gross;
+let simT = 0, lifted = false, airborneAlt = 0;
+let timeScale = 1, scaleTouched = false;
+let warpLeft = 0, warpUsed = false, resolving = false;
+let maxAlt = 0, maxSpd = 0, maxDown = 0, maxQ = 0, maxHoriz = 0, rAtMax = R_EARTH + TAIL;
+let maxAbsPitch = 0, maxPitchEarly = 0;
+let qOver = 0, impactSpd = 0, flownMet = 0;
+let lastTrail = 0;
+const trail = [];
+const particles = [];
+let camX = 0, camY = R_EARTH + TAIL, mpp = 0.5;
+let shake = 0, latch = null;
+let result = null;
+let hotUntil = 0;
+let fitNote = "";
+let clearArm = 0;
+let didAutoScale = false;
+let saidSpace = false;
+let saidMaxQ = false;
+let sawHighQ = false;
+let lastReal = performance.now();
+let acc = 0;
+let viewW = 1, viewH = 1;
+let audio = null;
+let sliderHold = false;
+
+const STARS = Array.from({ length: 150 }, () => ({
+  x: Math.random(),
+  y: Math.random() * 0.92,
+  r: Math.random() < 0.12 ? 1.5 : 0.7,
+  a: 0.3 + Math.random() * 0.7
+}));
+
+function defaultSave() {
+  return {
+    v: 1, money: 0, lattice: false, torch: false, warp: false,
+    flights: 0, bestAlt: 0, bestSpd: 0, bestDown: 0,
+    marks: {}, muted: false, last: null
+  };
+}
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return defaultSave();
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return defaultSave();
+    const base = defaultSave();
+    return {
+      ...base,
+      ...data,
+      v: 1,
+      money: Number(data.money) || 0,
+      lattice: !!data.lattice,
+      torch: !!data.torch && !!data.lattice,
+      warp: !!data.warp && !!data.torch && !!data.lattice,
+      flights: Number(data.flights) || 0,
+      bestAlt: Number(data.bestAlt) || 0,
+      bestSpd: Number(data.bestSpd) || 0,
+      bestDown: Number(data.bestDown) || 0,
+      marks: data.marks && typeof data.marks === "object" ? data.marks : {},
+      muted: !!data.muted,
+      last: data.last || null
+    };
+  } catch (e) {
+    return defaultSave();
+  }
+}
+function writeSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    saveOk = true;
+  } catch (e) {
+    saveOk = false;
+  }
+}
+function specs(flags) {
+  const dry = flags.lattice ? 2950 : 4700;
+  const fuelLoad = 8200;
+  const thrust = flags.torch ? 305000 : 188000;
+  const isp = flags.torch ? 342 : 306;
+  const qLimit = flags.lattice ? 52000 : 46000;
+  const ve = isp * G0;
+  const gross = dry + fuelLoad;
+  return {
+    dry, fuel: fuelLoad, thrust, isp, qLimit,
+    warp: !!flags.warp,
+    ve, gross,
+    dv: ve * Math.log(gross / dry),
+    twr: thrust / (gross * G0),
+    burn: (fuelLoad * ve) / thrust
+  };
+}
+function money(n) {
+  const v = Math.round(n);
+  const sign = v < 0 ? "-" : "";
+  return sign + "$" + Math.abs(v).toLocaleString("en-US");
+}
+function kg(n) { return Math.round(n).toLocaleString("en-US") + " kg"; }
+function kn(n) { return (n / 1000).toFixed(0) + " kN"; }
+function mps(n) { return Math.round(n).toLocaleString("en-US") + " m/s"; }
+function kpa(n) { return (n / 1000).toFixed(0) + " kPa"; }
+function altText(m) {
+  if (!isFinite(m)) return "—";
+  if (m < 1000) return Math.max(0, m).toFixed(0) + " m";
+  if (m < 10000) return (m / 1000).toFixed(2) + " km";
+  return (m / 1000).toFixed(1) + " km";
+}
+function metText(t) {
+  const s = Math.max(0, Math.floor(t));
+  const m = Math.floor(s / 60);
+  return "T+ " + String(m).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function kitLine(flags) {
+  if (!flags.lattice) return "Stock tanks · stock engine";
+  const parts = ["Carbon lattice"];
+  parts.push(flags.torch ? "torch nozzle" : "stock engine");
+  if (flags.warp) parts.push("warp tap");
+  return parts.join(" · ");
+}
+function density(alt) {
+  if (alt > 125000) return 0;
+  return 1.225 * Math.exp(-Math.max(0, alt) / 8100);
+}
+function frameOf(x, y) {
+  const r = Math.hypot(x, y) || 1;
+  const ux = x / r, uy = y / r;
+  return { r, ux, uy, ex: uy, ey: -ux };
+}
+function altitudeOf(r) { return r - R_EARTH - TAIL; }
+function say(text, seconds) {
+  latch = { until: performance.now() + (seconds || 4.2) * 1000, text };
+}
+function cueDeg(alt) {
+  if (alt < 1200) return 0;
+  if (alt < 8000) return 15;
+  if (alt < 20000) return 30;
+  if (alt < 45000) return 45;
+  return 70;
+}
+function dataValue(alt, spd, down, reason, didLift) {
+  if (!didLift) return reason === "tip" ? 12000 : 0;
+  let v = 20000 + alt * 11.2 + spd * 65 + down * 3.2;
+  if (reason === "breakup") v *= 0.5;
+  if (reason === "land") v += 200000;
+  return Math.round(Math.max(15000, v));
+}
+function circSpeed(r) { return Math.sqrt(MU / Math.max(r, R_EARTH)); }
+
+function park() {
+  veh = specs(save);
+  px = 0;
+  py = R_EARTH + TAIL;
+  vx = 0; vy = 0;
+  pitch = 0; pitchCmd = 0; throttle = 0;
+  fuel = veh.fuel;
+  mass = veh.gross;
+  simT = 0;
+  lifted = false;
+  airborneAlt = 0;
+  timeScale = 1;
+  scaleTouched = false;
+  didAutoScale = false;
+  saidSpace = false;
+  saidMaxQ = false;
+  sawHighQ = false;
+  warpLeft = 0;
+  warpUsed = false;
+  resolving = false;
+  maxAlt = 0; maxSpd = 0; maxDown = 0; maxQ = 0; maxHoriz = 0;
+  rAtMax = R_EARTH + TAIL;
+  maxAbsPitch = 0; maxPitchEarly = 0;
+  qOver = 0; impactSpd = 0; flownMet = 0;
+  trail.length = 0;
+  particles.length = 0;
+  lastTrail = 0;
+  camX = px; camY = py;
+  mpp = 140 / Math.max(200, viewH * 0.72);
+  shake = 0;
+  latch = null;
+  phase = "pad";
+  document.body.className = "pad";
+  $("deck-pad").hidden = false;
+  $("deck-flight").hidden = true;
+  $("debrief").hidden = true;
+  $("vignette").className = "";
+  renderPanel();
+  renderChrome();
+}
+function launch() {
+  ensureAudio();
+  veh = specs(save);
+  park();
+  phase = "flying";
+  document.body.className = "flight";
+  $("deck-pad").hidden = true;
+  $("deck-flight").hidden = false;
+  $("throttle").value = "0";
+  fitNote = "";
+  say("Throttle up. The pad lets go once thrust along up beats weight.", 5);
+  renderPanel();
+  renderChrome();
+}
+function scrub() {
+  if (phase !== "flying" || lifted) return;
+  park();
+}
+function tryWarp() {
+  if (phase !== "flying" || !veh.warp || warpUsed || warpLeft > 0) return;
+  const f = frameOf(px, py);
+  const alt = altitudeOf(f.r);
+  const spd = Math.hypot(vx, vy);
+  const q = 0.5 * density(alt) * spd * spd;
+  if (alt < WARP_ALT || q > 8000) return;
+  warpLeft = WARP_SECS;
+  warpUsed = true;
+  if (!scaleTouched) timeScale = 1;
+  say("Warp tap is firing along the nose. The coil does not use propellant.", 4);
+  blip(140, 0.18, "sawtooth");
+}
+function onLog() {
+  if (phase !== "flying") return;
+  if (!lifted) { scrub(); return; }
+  flownMet = simT;
+  resolving = true;
+  throttle = 0;
+  const t0 = simT;
+  let guard = 0;
+  while (phase === "flying" && simT - t0 < 4200 && guard < 50000) {
+    step(0.12);
+    guard++;
+  }
+  resolving = false;
+  if (phase === "flying") endFlight("logged");
+}
+
+function step(dt) {
+  const f = frameOf(px, py);
+  const alt = altitudeOf(f.r);
+  const vrad = vx * f.ux + vy * f.uy;
+  const veast = vx * f.ex + vy * f.ey;
+  const dPitch = Math.max(-PITCH_RATE * dt, Math.min(PITCH_RATE * dt, pitchCmd - pitch));
+  pitch += dPitch;
+
+  const wantBurn = fuel > 0.05 && throttle > 0 && phase === "flying";
+  const thrust = wantBurn ? throttle * veh.thrust : 0;
+  const nx = Math.cos(pitch) * f.ux + Math.sin(pitch) * f.ex;
+  const ny = Math.cos(pitch) * f.uy + Math.sin(pitch) * f.ey;
+  let ax = 0, ay = 0;
+  if (thrust > 0) {
+    ax += nx * thrust / mass;
+    ay += ny * thrust / mass;
+  }
+  const warping = warpLeft > 0;
+  if (warping) {
+    ax += nx * WARP_ACCEL;
+    ay += ny * WARP_ACCEL;
+    warpLeft = Math.max(0, warpLeft - dt);
+    if (warpLeft === 0) say("Warp tap spent.", 3);
+  }
+  const g = MU / (f.r * f.r);
+  ax -= f.ux * g;
+  ay -= f.uy * g;
+  const spd = Math.hypot(vx, vy);
+  const rho = density(Math.max(0, alt));
+  const q = 0.5 * rho * spd * spd;
+  if (spd > 0.01 && rho > 0) {
+    const drag = q * CD * AREA;
+    ax -= (vx / spd) * drag / mass;
+    ay -= (vy / spd) * drag / mass;
+  }
+  mass = veh.dry + fuel;
+
+  if (!lifted) {
+    const vertAccel = (thrust * Math.cos(pitch)) / mass - g;
+    if (vertAccel > 0.25 && Math.abs(pitch) < 1.2) {
+      lifted = true;
+      say("Liftoff.", 3.2);
+      shake = Math.max(shake, 0.35);
+    } else {
+      px = 0;
+      py = R_EARTH + TAIL;
+      vx = 0;
+      vy = 0;
+      simT += dt;
+      if (Math.abs(pitch) > 1.25 && throttle > 0.2) endFlight("tip");
+      return;
+    }
+  }
+  if (thrust > 0 && lifted) {
+    const dm = Math.min(fuel, (thrust / veh.ve) * dt);
+    fuel -= dm;
+    mass = veh.dry + fuel;
+  }
+
+  vx += ax * dt;
+  vy += ay * dt;
+  px += vx * dt;
+  py += vy * dt;
+  simT += dt;
+  if (!isFinite(px) || !isFinite(py) || !isFinite(vx) || !isFinite(vy)) {
+    endFlight(lifted ? "logged" : "tip");
+    return;
+  }
+
+  const f2 = frameOf(px, py);
+  const alt2 = altitudeOf(f2.r);
+  const spd2 = Math.hypot(vx, vy);
+  const down = Math.abs(Math.atan2(px, py)) * R_EARTH;
+  const east2 = vx * f2.ex + vy * f2.ey;
+  const rad2 = vx * f2.ux + vy * f2.uy;
+  if (alt2 > maxAlt) {
+    maxAlt = alt2;
+    rAtMax = f2.r;
+  }
+  if (spd2 > maxSpd) maxSpd = spd2;
+  if (down > maxDown) maxDown = down;
+  if (q > maxQ) maxQ = q;
+  if (Math.abs(east2) > maxHoriz) maxHoriz = Math.abs(east2);
+  if (Math.abs(pitch) > maxAbsPitch) maxAbsPitch = Math.abs(pitch);
+  if (alt2 < 4000 && Math.abs(pitch) > maxPitchEarly) maxPitchEarly = Math.abs(pitch);
+  if (alt2 > airborneAlt) airborneAlt = alt2;
+
+  const sample = resolving ? 2500 : 50;
+  const last = trail[trail.length - 1];
+  if (!last || Math.hypot(px - last.x, py - last.y) > sample) {
+    trail.push({ x: px, y: py });
+    if (trail.length > 900) trail.shift();
+  }
+
+  if (!resolving && particles.length < 70 && (thrust > 0 || warping)) {
+    const rate = warping ? 0.45 : throttle * 0.35;
+    if (Math.random() < rate) {
+      particles.push({
+        x: px - nx * TAIL,
+        y: py - ny * TAIL,
+        vx: -nx * (40 + Math.random() * 80) + vx * 0.2,
+        vy: -ny * (40 + Math.random() * 80) + vy * 0.2,
+        life: 0.25 + Math.random() * 0.35,
+        age: 0,
+        warp: warping,
+        torch: !!save.torch
+      });
+    }
+  }
+  if (!resolving && !lifted && throttle > 0.4 && Math.random() < 0.5) {
+    particles.push({
+      x: px + (Math.random() - 0.5) * 8,
+      y: py - TAIL,
+      vx: (Math.random() - 0.5) * 12,
+      vy: 8 + Math.random() * 16,
+      life: 0.4,
+      age: 0,
+      dust: true
+    });
+  }
+
+  if (lifted && rad2 >= -8) {
+    if (q > veh.qLimit) qOver += dt;
+    else qOver = Math.max(0, qOver - dt * 0.45);
+    if (qOver > 1.15) {
+      burst(px, py);
+      endFlight("breakup");
+      return;
+    }
+  }
+
+  if (alt2 <= 0 && airborneAlt > 6) {
+    impactSpd = spd2;
+    const soft = spd2 < 18 && Math.abs(pitch) < 0.45 && Math.abs(east2) < 22 && rad2 > -18;
+    endFlight(soft ? "land" : "impact");
+    return;
+  }
+  if (alt2 < 0) {
+    const rr = R_EARTH + TAIL;
+    px = f2.ux * rr;
+    py = f2.uy * rr;
+    if (rad2 < 0) {
+      vx -= rad2 * f2.ux;
+      vy -= rad2 * f2.uy;
+    }
+  }
+
+  if (q > 12000) sawHighQ = true;
+  if (!saidMaxQ && sawHighQ && q < 7000 && rad2 > 0 && alt2 > 8000 && !resolving) {
+    saidMaxQ = true;
+    say("Max Q is behind you.", 3);
+  }
+  if (!saidSpace && alt2 >= 100000 && !resolving) {
+    saidSpace = true;
+    say("Above the Karman line.", 3.5);
+  }
+  if (!resolving && !didAutoScale && !scaleTouched && lifted && fuel <= 0.05 && warpLeft <= 0 && rad2 < -8 && maxAlt > 2000 && alt2 < maxAlt - 2500) {
+    const warpStillUseful = veh.warp && !warpUsed && alt2 > 42000;
+    if (!warpStillUseful && timeScale < 80) {
+      didAutoScale = true;
+      timeScale = 80;
+      say("Past apogee. Time scale is 80×. Use 1× to watch, or log the arc.", 4.5);
+    }
+  }
+}
+
+function burst(x, y) {
+  for (let i = 0; i < 18; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 20 + Math.random() * 80;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.8, age: 0, dust: true });
+  }
+}
+
+function endFlight(reason) {
+  if (phase !== "flying") return;
+  phase = "ending";
+  const didLift = lifted && reason !== "tip";
+  const met = flownMet || simT;
+  const prev = save.last;
+  const dataPay = dataValue(maxAlt, maxSpd, maxDown, reason, didLift && reason !== "tip");
+  const fresh = [];
+  let markPay = 0;
+  if (didLift && reason !== "tip") {
+    for (const mark of MARKS) {
+      if (!save.marks[mark.id] && mark.test({ maxAlt, maxSpd, maxDown, warpFired: warpUsed })) {
+        save.marks[mark.id] = true;
+        fresh.push(mark);
+        markPay += mark.pay;
+      }
+    }
+  }
+  const total = dataPay + markPay;
+  save.money += total;
+  save.flights += 1;
+  save.bestAlt = Math.max(save.bestAlt, maxAlt);
+  save.bestSpd = Math.max(save.bestSpd, maxSpd);
+  save.bestDown = Math.max(save.bestDown, maxDown);
+  if (didLift) {
+    save.last = {
+      alt: maxAlt, spd: maxSpd, down: maxDown,
+      dry: veh.dry, thrust: veh.thrust, warp: veh.warp
+    };
+  }
+  writeSave();
+  result = {
+    reason, didLift, met, dataPay, markPay, total, fresh, prev,
+    maxAlt, maxSpd, maxDown, maxQ, maxHoriz, impactSpd,
+    fuelLeft: fuel, warpFired: warpUsed,
+    circ: circSpeed(rAtMax),
+    coast: flownMet ? Math.max(0, simT - flownMet) : 0
+  };
+  if (reason === "breakup") say("Airframe failed.", 2);
+  if (reason === "tip") say("The stack fell on the pad.", 2);
+  setTimeout(showDebrief, reason === "breakup" ? 900 : 500);
+}
+
+function lessonOf(r) {
+  const vehNow = veh;
+  if (r.reason === "tip") {
+    return "Pitch on the pad went past 72° with the engine lit. The clamp let go and the stack fell. Leave the pad nearer vertical, then tilt.";
+  }
+  if (!r.didLift) {
+    return "Thrust along up never passed weight. Liftoff thrust-to-weight on this vehicle is " + vehNow.twr.toFixed(2) + ". It has to be above 1, and the nose has to be mostly up.";
+  }
+  if (r.reason === "breakup") {
+    return "Dynamic pressure reached " + (r.maxQ / 1000).toFixed(0) + " kPa. This airframe is rated to " + (vehNow.qLimit / 1000).toFixed(0) + " kPa. Thick air punishes speed. Ease the throttle, or stay nearer vertical until the air thins.";
+  }
+  if (r.warpFired) {
+    return "The coil added " + WARP_ACCEL.toFixed(0) + " m/s² along the nose for up to " + WARP_SECS.toFixed(0) + " s and did not spend propellant. Peak speed was " + mps(r.maxSpd) + ". A circular orbit at that apogee still wants about " + mps(r.circ) + ", mostly sideways.";
+  }
+  if (r.maxPitchEarly > 35 * Math.PI / 180 && r.maxAlt < 50000) {
+    return "The nose tilted hard while the air was still thick. Drag and a sideways burn both take a share of the climb. The range cue is a later tilt, not a tip-over.";
+  }
+  if (r.maxAbsPitch < 8 * Math.PI / 180 && r.maxAlt > 40000) {
+    return "The nose stayed near vertical, so almost all of the delta-v bought altitude. A tilt east after the tower trades some of that height for downrange.";
+  }
+  if (r.fuelLeft > vehNow.fuel * 0.28 && r.maxAlt < 70000) {
+    return "Propellant was still aboard at the end of powered flight. Delta-v left in the tanks is altitude the vehicle did not spend.";
+  }
+  if (r.reason === "land") {
+    return "Contact was " + r.impactSpd.toFixed(0) + " m/s with the nose near up. The vehicle is intact. Most arcs from this pad are not.";
+  }
+  if (r.maxAlt >= 100000) {
+    return "The top of the arc cleared 100 km, the Karman line. Above that, a wing stops being the point. Staying up is a different number: about " + mps(r.circ) + " of horizontal speed. This ship’s chemical delta-v, before losses, is " + mps(vehNow.dv) + ".";
+  }
+  return "Apogee is the top of the coast after the engine stops. Less dry mass, more thrust, or a later tilt all move it. The plate is the vehicle.";
+}
+function headlineOf(r) {
+  if (r.reason === "tip") return "The stack fell on the pad.";
+  if (!r.didLift) return "It never left the pad.";
+  if (r.reason === "breakup") return "The airframe failed on the way up.";
+  if (r.reason === "land") return "Recovered intact.";
+  if (r.warpFired && r.maxAlt >= 100000) return "The coil flew.";
+  if (r.maxAlt >= 100000) return "Cleared the Karman line.";
+  if (r.maxAlt >= 80000) return "Edge of space.";
+  return "Apogee " + altText(r.maxAlt) + ".";
+}
+function nextBuyLine() {
+  if (!save.lattice) {
+    const gap = PRICES.lattice - save.money;
+    return gap <= 0 ? "Carbon lattice is in reach." : "Carbon lattice is " + money(gap) + " away.";
+  }
+  if (!save.torch) {
+    const gap = PRICES.torch - save.money;
+    return gap <= 0 ? "Torch nozzle is in reach." : "Torch nozzle is " + money(gap) + " away.";
+  }
+  if (!save.warp) {
+    const gap = PRICES.warp - save.money;
+    return gap <= 0 ? "Warp tap is in reach." : "Warp tap is " + money(gap) + " away.";
+  }
+  return "The coil is on the ship. The gap to a circular orbit is still open.";
+}
+function showDebrief() {
+  if (!result) return;
+  phase = "debrief";
+  const r = result;
+  const rows = [
+    ["Apogee", altText(r.maxAlt)],
+    ["Peak speed", mps(r.maxSpd)],
+    ["Peak horizontal", mps(r.maxHoriz)],
+    ["Downrange", altText(r.maxDown)],
+    ["Max Q", (r.maxQ / 1000).toFixed(1) + " kPa"],
+    ["Fuel left", kg(Math.max(0, r.fuelLeft))],
+    ["Circular at apo", mps(r.circ)],
+    ["MET", metText(r.met)]
+  ];
+  if (r.impactSpd > 0) rows.push(["Contact speed", mps(r.impactSpd)]);
+  const marks = r.fresh.length
+    ? r.fresh.map((m) => "<li><span>" + m.label + "</span><span>" + money(m.pay) + "</span></li>").join("")
+    : "";
+  let compare = "";
+  if (r.prev && r.didLift) {
+    compare = "Previous apogee " + altText(r.prev.alt) + ".";
+    if (r.prev.dry !== veh.dry) compare += " Dry mass then " + kg(r.prev.dry) + ", this flight " + kg(veh.dry) + ".";
+    if (r.prev.thrust !== veh.thrust) compare += " Thrust then " + kn(r.prev.thrust) + ", this flight " + kn(veh.thrust) + ".";
+    if (r.prev.warp !== veh.warp && veh.warp) compare += " Warp tap was new on this vehicle.";
+  }
+  const note = r.reason === "breakup" ? "Flight data is halved when the airframe fails on the way up." : "";
+  $("debrief").innerHTML =
+    "<div class='card'>" +
+    "<h2>" + headlineOf(r) + "</h2>" +
+    "<p class='lesson'>" + lessonOf(r) + "</p>" +
+    "<div class='grid2'>" + rows.map((row) => "<div><span>" + row[0] + "</span><b>" + row[1] + "</b></div>").join("") + "</div>" +
+    (marks ? "<ul class='marks'>" + marks + "</ul>" : "") +
+    "<table class='money-lines'><tbody>" +
+    "<tr><th>Flight data</th><td>" + money(r.dataPay) + "</td></tr>" +
+    "<tr><th>New marks</th><td>" + money(r.markPay) + "</td></tr>" +
+    "<tr class='total'><th>This flight</th><td>" + money(r.total) + "</td></tr>" +
+    "<tr><th>Budget</th><td>" + money(save.money) + "</td></tr>" +
+    "</tbody></table>" +
+    (note ? "<p class='compare'>" + note + "</p>" : "") +
+    (compare ? "<p class='compare'>" + compare + "</p>" : "") +
+    "<p class='next-buy'>" + nextBuyLine() + "</p>" +
+    "<div class='debrief-actions'>" +
+    "<button type='button' class='primary' id='toPad'>Back to pad</button>" +
+    "<button type='button' id='flyAgain'>Fly again</button>" +
+    "</div></div>";
+  $("debrief").hidden = false;
+  $("toPad").onclick = () => park();
+  $("flyAgain").onclick = () => launch();
+  renderChrome();
+}
+
+function buy(id) {
+  if (phase !== "pad") return;
+  const price = PRICES[id];
+  if (!price || save[id]) return;
+  if (id === "torch" && !save.lattice) return;
+  if (id === "warp" && !save.torch) return;
+  if (save.money < price) return;
+  save.money -= price;
+  save[id] = true;
+  writeSave();
+  hotUntil = performance.now() + 1600;
+  veh = specs(save);
+  if (id === "lattice") fitNote = "Fitted. Dry mass is " + kg(veh.dry) + ". Liftoff TWR is " + veh.twr.toFixed(2) + ".";
+  if (id === "torch") fitNote = "Fitted. Thrust is " + kn(veh.thrust) + ". Liftoff TWR is " + veh.twr.toFixed(2) + ". The burn is " + Math.round(veh.burn) + " s.";
+  if (id === "warp") fitNote = "Fitted. The warp tap arms above 48 km: " + WARP_ACCEL.toFixed(0) + " m/s² along the nose for " + WARP_SECS.toFixed(0) + " s. It does not use propellant.";
+  blip(520, 0.07, "sine");
+  renderPanel();
+  renderChrome();
+}
+function resetSave() {
+  const now = performance.now();
+  if (now - clearArm > 4500) {
+    clearArm = now;
+    const btn = $("clearBtn");
+    if (btn) btn.textContent = "Confirm clear";
+    return;
+  }
+  save = defaultSave();
+  writeSave();
+  hotUntil = 0;
+  fitNote = "";
+  park();
+}
+
+function renderPanel() {
+  const now = specs(save);
+  const specRows = [
+    ["Dry mass", kg(now.dry), "structure"],
+    ["Propellant", kg(now.fuel), "methalox"],
+    ["Thrust", kn(now.thrust), "sea level"],
+    ["Isp", now.isp.toFixed(0) + " s", "reference"],
+    ["Delta-v", mps(now.dv), "no losses"],
+    ["Liftoff TWR", now.twr.toFixed(2), "lifts above 1"],
+    ["Full burn", Math.round(now.burn) + " s", "at full throttle"],
+    ["Q limit", kpa(now.qLimit), "ascent airframe"],
+    ["Warp", now.warp ? (WARP_ACCEL.toFixed(0) + " m/s²") : "not fitted", now.warp ? (WARP_SECS.toFixed(0) + " s tap") : "research"]
+  ];
+  const cards = [
+    {
+      id: "lattice", index: "01", name: "Carbon lattice",
+      blurb: "Lighter tanks. Same propellant load, less dry mass, a higher Q rating.",
+      need: null,
+      rows: (a, b) => [
+        ["Dry mass", kg(a.dry), kg(b.dry)],
+        ["Liftoff TWR", a.twr.toFixed(2), b.twr.toFixed(2)],
+        ["Delta-v", mps(a.dv), mps(b.dv)],
+        ["Q limit", kpa(a.qLimit), kpa(b.qLimit)]
+      ]
+    },
+    {
+      id: "torch", index: "02", name: "Torch nozzle",
+      blurb: "More thrust and a higher specific impulse. The burn gets shorter and harder.",
+      need: "lattice",
+      rows: (a, b) => [
+        ["Thrust", kn(a.thrust), kn(b.thrust)],
+        ["Isp", a.isp.toFixed(0) + " s", b.isp.toFixed(0) + " s"],
+        ["Liftoff TWR", a.twr.toFixed(2), b.twr.toFixed(2)],
+        ["Full burn", Math.round(a.burn) + " s", Math.round(b.burn) + " s"]
+      ]
+    },
+    {
+      id: "warp", index: "03", name: "Warp tap",
+      blurb: "A first coil. Above the thick air it adds field acceleration along the nose, and it does not throw mass.",
+      need: "torch",
+      rows: () => [
+        ["Mode", "Chemical", "Chemical + tap"],
+        ["Field", "—", WARP_ACCEL.toFixed(0) + " m/s²"],
+        ["Duration", "—", WARP_SECS.toFixed(0) + " s"],
+        ["Arms", "—", "Above 48 km"]
+      ]
+    }
+  ];
+  const cardHtml = cards.map((card) => {
+    const owned = !!save[card.id];
+    const locked = card.need && !save[card.need];
+    const nextFlags = { lattice: save.lattice, torch: save.torch, warp: save.warp };
+    nextFlags[card.id] = true;
+    if (card.id === "torch") nextFlags.lattice = true;
+    if (card.id === "warp") { nextFlags.lattice = true; nextFlags.torch = true; }
+    const next = specs(nextFlags);
+    const head = "<tr><th></th><th>Now</th><th>Next</th></tr>";
+    const body = card.rows(now, next).map((row) =>
+      "<tr><th>" + row[0] + "</th><td class='now'>" + row[1] + "</td><td class='next'>" + row[2] + "</td></tr>"
+    ).join("");
+    let button;
+    if (owned) button = "<button type='button' disabled>On the vehicle</button>";
+    else if (locked) {
+      const name = card.need === "lattice" ? "carbon lattice" : "torch nozzle";
+      button = "<button type='button' disabled>Needs " + name + "</button>";
+    }     else if (phase !== "pad") button = "<button type='button' disabled>Between flights</button>";
+    else if (save.money < PRICES[card.id]) {
+      button = "<button type='button' disabled>Need " + money(PRICES[card.id] - save.money) + " more</button>";
+    } else button = "<button type='button' class='primary' data-buy='" + card.id + "'>Install · " + money(PRICES[card.id]) + "</button>";
+    return "<article class='card" + (owned ? " owned" : "") + "'>" +
+      "<header><strong>" + card.index + "  " + card.name + "</strong><em>" + money(PRICES[card.id]) + "</em></header>" +
+      "<p>" + card.blurb + "</p>" +
+      "<table class='delta'><thead>" + head + "</thead><tbody>" + body + "</tbody></table>" +
+      button + "</article>";
+  }).join("");
+  const markHtml = MARKS.map((m) =>
+    "<li class='" + (save.marks[m.id] ? "got" : "") + "'><span>" + (save.marks[m.id] ? "● " : "○ ") + m.label + "</span><span>" + money(m.pay) + "</span></li>"
+  ).join("");
+  $("panel").innerHTML =
+    "<p class='coach'>One pad, one vehicle. Fly it, sell the data, fit the next part. Pitch is degrees east of straight up. The range cue trades height for distance.</p>" +
+    (fitNote ? "<p class='next-buy'>" + fitNote + "</p>" : "") +
+    "<h2>Vesper-1</h2><p class='compare' style='margin-top:0'>" + kitLine(save) + "</p>" +
+    "<div class='specs'>" + specRows.map((row) => "<div><span>" + row[0] + "</span><b>" + row[1] + "</b><i>" + row[2] + "</i></div>").join("") + "</div>" +
+    "<h2>Research</h2><div class='tree'>" + cardHtml + "</div>" +
+    "<h2>Pad log</h2><div class='records'>" +
+    "<div><span>Flights</span><b>" + save.flights + "</b></div>" +
+    "<div><span>Best apogee</span><b>" + (save.bestAlt ? altText(save.bestAlt) : "—") + "</b></div>" +
+    "<div><span>Best speed</span><b>" + (save.bestSpd ? mps(save.bestSpd) : "—") + "</b></div>" +
+    "<div><span>Best range</span><b>" + (save.bestDown ? altText(save.bestDown) : "—") + "</b></div>" +
+    "</div>" +
+    "<details><summary>Marks</summary><ul class='marks'>" + markHtml + "</ul></details>" +
+    (saveOk ? "" : "<p class='save-note'>This browser did not keep the save.</p>") +
+    "<button type='button' class='ghost' id='clearBtn'>Clear this pad's save</button>";
+  $("panel").querySelectorAll("[data-buy]").forEach((btn) => {
+    btn.onclick = () => buy(btn.getAttribute("data-buy"));
+  });
+  const clearBtn = $("clearBtn");
+  if (clearBtn) clearBtn.onclick = resetSave;
+}
+function renderChrome() {
+  const flying = phase === "flying" || phase === "ending";
+  $("sub").textContent = flying
+    ? kitLine(save) + " · " + metText(simT)
+    : "Vesper-1 · Pad 01 · next flight " + (save.flights + 1);
+  $("headLabel").textContent = flying ? "Data value" : "Budget";
+  const f = frameOf(px, py);
+  const alt = Math.max(0, altitudeOf(f.r));
+  const ticket = flying && lifted
+    ? dataValue(maxAlt, maxSpd, maxDown, "impact", true)
+    : save.money;
+  $("headValue").textContent = money(flying ? ticket : save.money);
+  $("muteBtn").textContent = save.muted ? "Muted" : "Sound";
+  $("muteBtn").setAttribute("aria-pressed", save.muted ? "true" : "false");
+}
+
+function liveDirector(alt, q, vrad) {
+  if (latch && performance.now() < latch.until) return latch.text;
+  if (phase === "pad") return "Night launch. The vehicle is fueled and waiting on the clamp.";
+  if (phase === "ending" || phase === "debrief") return latch && latch.text ? latch.text : "";
+  if (!lifted && Math.abs(pitch) > 0.9) return "That angle will not lift cleanly. Bring the nose up, then throttle.";
+  if (!lifted && throttle < 0.3) return "Idle on the clamp. Thrust along up has to pass weight.";
+  if (!lifted) return "Engines up. Liftoff thrust-to-weight needs to clear 1.";
+  if (warpLeft > 0) return "Warp tap firing. " + WARP_ACCEL.toFixed(0) + " m/s² along the nose. Propellant is not the source.";
+  if (q > veh.qLimit * 0.82 && vrad >= 0) return "Dynamic pressure is near the airframe limit. Ease the throttle.";
+  if (timeScale >= 80 && alt < 25000 && vrad > 0 && q > veh.qLimit * 0.4) return "80× in thick air. The load can pass the limit before a throttle change lands.";
+  if (veh.warp && !warpUsed && alt >= WARP_ALT && q < 8000) return "Warp tap is armed. Point the nose, then light it.";
+  if (fuel <= 0.05 && vrad > 0) return "Propellant spent. From here the arc is a coast.";
+  if (alt >= 100000 && vrad > 20) return "Above the Karman line. A wing is done mattering.";
+  if (vrad < 0 && alt < 90000 && alt > 25000) return "Coming back through the air. This airframe has no heat shield.";
+  if (lifted && simT > 22 && simT < 34 && timeScale === 1 && fuel > 0) return "The full burn is about " + Math.round(veh.burn) + " s at 1×. Time scale is in the tray.";
+  return "Mass is falling. The same thrust accelerates a lighter ship.";
+}
+
+function updateHud() {
+  const f = frameOf(px, py);
+  const alt = altitudeOf(f.r);
+  const vrad = vx * f.ux + vy * f.uy;
+  const spd = Math.hypot(vx, vy);
+  const down = Math.abs(Math.atan2(px, py)) * R_EARTH;
+  const g = MU / (f.r * f.r);
+  const q = 0.5 * density(Math.max(0, alt)) * spd * spd;
+  const thrustNow = (phase === "flying" && fuel > 0.05) ? throttle * veh.thrust : 0;
+  const twrNow = thrustNow / (mass * g);
+  const dvNow = fuel > 1 ? veh.ve * Math.log((veh.dry + fuel) / veh.dry) : 0;
+  const onPad = phase === "pad";
+  $("altRead").textContent = onPad ? "0 m" : altText(Math.max(0, alt));
+  $("vupRead").textContent = onPad ? "clamped" : ((vrad >= 0 ? "+" : "−") + Math.abs(vrad).toFixed(0) + " m/s up");
+  $("spdRead").textContent = onPad ? "0 m/s" : mps(spd);
+  let mach = "";
+  if (!onPad && alt < 40000 && spd > 40) {
+    const aSound = alt < 11000 ? 340 - alt * 0.004 : 295;
+    mach = "Mach " + (spd / aSound).toFixed(2) + " · ";
+  }
+  $("machRead").textContent = onPad ? "downrange 0 m" : mach + "range " + altText(down);
+  const apo = onPad || !lifted ? NaN : predictApo();
+  $("apoRead").textContent = isFinite(apo) ? altText(apo) : "—";
+  const cue = cueDeg(Math.max(0, alt));
+  $("cueRead").textContent = "range cue " + cue + "°";
+  $("p1k").textContent = onPad ? "Dry mass" : "Mass";
+  $("p1v").textContent = onPad ? kg(veh.dry) : kg(mass);
+  $("p2k").textContent = "Thrust";
+  $("p2v").textContent = onPad ? kn(veh.thrust) : kn(thrustNow);
+  $("p3k").textContent = onPad ? "Liftoff TWR" : "TWR";
+  $("p3v").textContent = onPad ? veh.twr.toFixed(2) : (thrustNow > 0 ? twrNow.toFixed(2) : "0");
+  $("p4k").textContent = "Delta-v";
+  $("p4v").textContent = mps(onPad ? veh.dv : dvNow);
+  $("p5k").textContent = onPad ? "Q limit" : ("Q  /  " + (veh.qLimit / 1000).toFixed(0));
+  $("p5v").textContent = onPad ? kpa(veh.qLimit) : ((q / 1000).toFixed(1) + " kPa");
+  $("p6k").textContent = onPad ? "Full burn" : "Local g";
+  $("p6v").textContent = onPad ? (Math.round(veh.burn) + " s") : (g.toFixed(2) + " m/s²");
+  const hot = performance.now() < hotUntil;
+  $("c1").className = "cell" + (hot ? " hot" : "");
+  $("c2").className = "cell" + (hot && save.torch ? " hot" : "");
+  $("c3").className = "cell" + (hot ? " hot" : "");
+  const qRatio = veh.qLimit ? q / veh.qLimit : 0;
+  $("c5").className = "cell" + (!onPad && qRatio > 1 ? " bad" : !onPad && qRatio > 0.75 ? " warn" : "");
+  const fuelPct = Math.max(0, Math.min(1, fuel / veh.fuel));
+  $("fuelFill").style.width = (onPad ? 100 : fuelPct * 100).toFixed(1) + "%";
+  let fuelLine = onPad ? "Fuel 100%" : "Fuel " + Math.round(fuelPct * 100) + "%";
+  if (phase === "flying" && warpLeft > 0) fuelLine += " · warp " + warpLeft.toFixed(1) + "s";
+  else if (phase === "flying" && veh.warp && warpUsed) fuelLine += " · warp spent";
+  else if (phase === "flying" && veh.warp) fuelLine += " · warp armed " + (alt >= WARP_ALT ? "ready" : "at 48 km");
+  $("fuelLabel").textContent = fuelLine;
+  $("director").textContent = liveDirector(Math.max(0, alt), q, vrad);
+  if (phase === "flying" || phase === "ending") {
+    $("throttleRead").textContent = Math.round(throttle * 100) + "%";
+    const nowDeg = pitch * 180 / Math.PI;
+    const cmdDeg = pitchCmd * 180 / Math.PI;
+    $("pitchRead").textContent = "cmd " + cmdDeg.toFixed(0) + "° · now " + nowDeg.toFixed(0) + "°";
+    if (!sliderHold) $("throttle").value = String(Math.round(throttle * 100));
+    document.querySelectorAll("#pitchRow button").forEach((btn) => {
+      const deg = Number(btn.getAttribute("data-pitch"));
+      btn.className = Math.abs(cmdDeg - deg) < 0.5 ? "on" : "";
+    });
+    document.querySelectorAll("#timeRow button").forEach((btn) => {
+      btn.className = Number(btn.getAttribute("data-time")) === timeScale ? "on" : "";
+    });
+    document.querySelectorAll("#deck-flight [data-throttle]").forEach((btn) => {
+      const v = Number(btn.getAttribute("data-throttle"));
+      btn.className = Math.abs(throttle - v) < 0.02 ? "on" : "";
+    });
+    const full = $("fullBtn");
+    if (save.flights === 0 && !lifted && throttle < 0.5 && !reduceMotion) full.classList.add("attention");
+    const warpBtn = $("warpBtn");
+    const qOk = q < 8000 && alt >= WARP_ALT && lifted;
+    if (!veh.warp) {
+      warpBtn.disabled = true;
+      warpBtn.className = "";
+      warpBtn.textContent = "Warp · no coil";
+    } else if (warpLeft > 0) {
+      warpBtn.disabled = true;
+      warpBtn.className = "warp-hot";
+      warpBtn.textContent = "Warp " + warpLeft.toFixed(1) + "s";
+    } else if (warpUsed) {
+      warpBtn.disabled = true;
+      warpBtn.className = "";
+      warpBtn.textContent = "Warp spent";
+    } else if (!qOk) {
+      warpBtn.disabled = true;
+      warpBtn.className = "";
+      warpBtn.textContent = alt < WARP_ALT ? "Warp · 48 km" : "Warp · air too thick";
+    } else {
+      warpBtn.disabled = false;
+      warpBtn.className = "warp-ready" + (reduceMotion ? "" : " attention");
+      warpBtn.textContent = "Warp";
+    }
+    $("logBtn").textContent = lifted ? "Log arc" : "Scrub";
+    $("vignette").className = warpLeft > 0 ? "warp" : "";
+  } else {
+    $("vignette").className = "";
+  }
+  renderChrome();
+}
+
+function predictApo() {
+  let x = px, y = py, svx = vx, svy = vy, m = mass;
+  let best = altitudeOf(Math.hypot(x, y));
+  let goingUp = true;
+  for (let i = 0; i < 240; i++) {
+    const fr = frameOf(x, y);
+    const alt = altitudeOf(fr.r);
+    const spd = Math.hypot(svx, svy) || 0.0001;
+    const rho = density(Math.max(0, alt));
+    const q = 0.5 * rho * spd * spd;
+    const g = MU / (fr.r * fr.r);
+    let ax = -fr.ux * g;
+    let ay = -fr.uy * g;
+    if (rho > 0) {
+      const drag = q * CD * AREA;
+      ax -= svx / spd * drag / m;
+      ay -= svy / spd * drag / m;
+    }
+    svx += ax * 0.5;
+    svy += ay * 0.5;
+    x += svx * 0.5;
+    y += svy * 0.5;
+    const alt2 = altitudeOf(Math.hypot(x, y));
+    if (alt2 > best) best = alt2;
+    const vr = svx * (x / Math.hypot(x, y)) + svy * (y / Math.hypot(x, y));
+    if (vr < 0) goingUp = false;
+    if (!goingUp && vr < 0 && alt2 < best - 100) break;
+    if (alt2 < 0) break;
+  }
+  return best;
+}
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  viewW = Math.max(1, rect.width);
+  viewH = Math.max(1, rect.height);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.floor(viewW * dpr);
+  canvas.height = Math.floor(viewH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function worldToScreen(wx, wy) {
+  return [
+    viewW * 0.5 + (wx - camX) / mpp,
+    viewH * (phase === "pad" ? 0.62 : 0.44) - (wy - camY) / mpp
+  ];
+}
+function updateCamera(realDt) {
+  const f = frameOf(px, py);
+  const alt = Math.max(0, altitudeOf(f.r));
+  const spd = Math.hypot(vx, vy);
+  let span = Math.max(150, alt * 1.72 + 80, spd * 4.5);
+  if (phase === "pad") span = 118;
+  const target = span / Math.max(160, viewH * 0.7);
+  const rate = phase === "pad" ? 14 : 5 + timeScale * 2;
+  const k = 1 - Math.exp(-rate * Math.max(0.016, realDt));
+  if (!isFinite(mpp) || mpp <= 0) mpp = target;
+  mpp += (target - mpp) * (phase === "pad" ? 1 : k);
+  camX += (px - camX) * (phase === "pad" ? 1 : k);
+  camY += (py - camY) * (phase === "pad" ? 1 : k);
+  if (!reduceMotion && shake > 0) shake = Math.max(0, shake - realDt);
+}
+function render() {
+  ctx.clearRect(0, 0, viewW, viewH);
+  const f = frameOf(px, py);
+  const alt = Math.max(0, altitudeOf(f.r));
+  const sky = ctx.createLinearGradient(0, 0, 0, viewH);
+  const space = Math.max(0, Math.min(1, alt / 70000));
+  sky.addColorStop(0, "#02040c");
+  sky.addColorStop(0.62, space > 0.5 ? "#05070f" : "#0c1826");
+  sky.addColorStop(1, space > 0.35 ? "#05070e" : "#24180f");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, viewW, viewH);
+  const starA = 0.28 + 0.72 * Math.max(space, 0.35);
+  ctx.fillStyle = "#fff";
+  for (const s of STARS) {
+    ctx.globalAlpha = s.a * starA;
+    ctx.fillRect(s.x * viewW, s.y * viewH * 0.78, s.r, s.r);
+  }
+  ctx.globalAlpha = 1;
+  drawEarth();
+  drawPad();
+  drawTrail();
+  if (phase === "flying" && lifted) drawPredict();
+  drawShip();
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.age += 0.016;
+    p.x += p.vx * 0.016;
+    p.y += p.vy * 0.016;
+    if (p.age > p.life) { particles.splice(i, 1); continue; }
+    const [sx, sy] = worldToScreen(p.x, p.y);
+    ctx.globalAlpha = 1 - p.age / p.life;
+    ctx.fillStyle = p.dust ? "#c8b8a4" : p.warp ? "#d2c2ff" : p.torch ? "#b9e6ff" : "#ffb15a";
+    ctx.fillRect(sx, sy, 2.2, 2.2);
+  }
+  ctx.globalAlpha = 1;
+  drawVelocity();
+}
+function drawEarth() {
+  const ang = Math.atan2(px, py);
+  const reach = (Math.max(viewW, viewH) * mpp) / R_EARTH;
+  if (reach > 0.9 && mpp > 20) {
+    const [cx, cy] = worldToScreen(0, 0);
+    const rp = R_EARTH / mpp;
+    const glow = ctx.createRadialGradient(cx, cy, rp * 0.98, cx, cy, rp + 90000 / mpp);
+    glow.addColorStop(0, "rgba(80,150,190,0)");
+    glow.addColorStop(0.55, "rgba(90,170,210,0.18)");
+    glow.addColorStop(1, "rgba(90,170,210,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rp + 100000 / mpp, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, rp, 0, Math.PI * 2);
+    ctx.fillStyle = "#141c18";
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.5, 18000 / mpp);
+    ctx.strokeStyle = "rgba(150, 210, 230, 0.35)";
+    ctx.stroke();
+    return;
+  }
+  const span = Math.max(reach * 1.35, 0.0004);
+  const N = 72;
+  const pts = [];
+  for (let i = 0; i <= N; i++) {
+    const a = ang + (i / N - 0.5) * span * 2.4;
+    pts.push(worldToScreen(Math.sin(a) * R_EARTH, Math.cos(a) * R_EARTH));
+  }
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], viewH + 80);
+  for (const p of pts) ctx.lineTo(p[0], p[1]);
+  ctx.lineTo(pts[N][0], viewH + 80);
+  ctx.closePath();
+  const ground = ctx.createLinearGradient(0, pts[Math.floor(N / 2)][1] - 20, 0, viewH);
+  ground.addColorStop(0, "#1a2420");
+  ground.addColorStop(1, "#0c100e");
+  ctx.fillStyle = ground;
+  ctx.fill();
+  const band = 80000 / mpp;
+  if (band > 6 && band < viewH * 1.4) {
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const a = ang + (i / N - 0.5) * span * 2.4;
+      const rr = R_EARTH + 70000;
+      const s = worldToScreen(Math.sin(a) * rr, Math.cos(a) * rr);
+      if (i === 0) ctx.moveTo(s[0], s[1]); else ctx.lineTo(s[0], s[1]);
+    }
+    for (let i = N; i >= 0; i--) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(80, 160, 200, 0.16)";
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (const p of pts) ctx.lineTo(p[0], p[1]);
+  ctx.strokeStyle = "rgba(210, 196, 170, 0.45)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  if (mpp < 80) drawTicks(ang);
+}
+function drawTicks(ang) {
+  const step = mpp > 30 ? 20000 : mpp > 8 ? 5000 : mpp > 2 ? 1000 : 250;
+  const center = ang * R_EARTH;
+  const half = viewW * mpp * 0.65;
+  const start = Math.floor((center - half) / step) * step;
+  ctx.font = "12px ui-monospace, Menlo, Consolas, monospace";
+  ctx.fillStyle = "rgba(210, 220, 210, 0.7)";
+  ctx.textAlign = "center";
+  for (let d = start; d < center + half; d += step) {
+    const a = d / R_EARTH;
+    const [sx, sy] = worldToScreen(Math.sin(a) * (R_EARTH + 2), Math.cos(a) * (R_EARTH + 2));
+    if (sx < -20 || sx > viewW + 20) continue;
+    ctx.fillRect(sx, sy - 6, 1, 8);
+    if (Math.abs(d) > 1) {
+      const label = Math.abs(d) >= 1000 ? (d / 1000).toFixed(d % 1000 === 0 ? 0 : 1) + " km" : d.toFixed(0) + " m";
+      ctx.fillText(label, sx, sy - 10);
+    }
+  }
+}
+function drawPad() {
+  if (mpp > 40) {
+    const [sx, sy] = worldToScreen(0, R_EARTH);
+    if (sx > -10 && sx < viewW + 10 && sy > -10 && sy < viewH + 10) {
+      ctx.fillStyle = "#7adfff";
+      ctx.fillRect(sx - 2, sy - 2, 4, 4);
+    }
+    return;
+  }
+  function quad(x0, y0, x1, y1, x2, y2, x3, y3, fill) {
+    const a = worldToScreen(x0, y0), b = worldToScreen(x1, y1), c = worldToScreen(x2, y2), d = worldToScreen(x3, y3);
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+  quad(-70, R_EARTH, 55, R_EARTH, 55, R_EARTH + 1.4, -70, R_EARTH + 1.4, "#2a3034");
+  quad(-8, R_EARTH, 8, R_EARTH, 8, R_EARTH + 2.2, -8, R_EARTH + 2.2, "#3a4248");
+  quad(14, R_EARTH, 18, R_EARTH, 18, R_EARTH + 58, 14, R_EARTH + 58, "#1b242c");
+  quad(14, R_EARTH + 20, 26, R_EARTH + 20, 26, R_EARTH + 22, 14, R_EARTH + 22, "#24303a");
+  quad(14, R_EARTH + 38, 24, R_EARTH + 38, 24, R_EARTH + 40, 14, R_EARTH + 40, "#24303a");
+  quad(-48, R_EARTH, -34, R_EARTH, -34, R_EARTH + 7, -48, R_EARTH + 7, "#1a2228");
+  if (mpp < 6) {
+    const [lx, ly] = worldToScreen(-4, R_EARTH + 5);
+    ctx.fillStyle = "rgba(190, 210, 214, 0.75)";
+    ctx.font = "12px ui-monospace, Menlo, Consolas, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("PAD 01", lx, ly);
+  }
+  if (mpp < 3) {
+    ctx.fillStyle = "rgba(122, 223, 255, 0.85)";
+    for (const x of [-20, -10, 10, 22]) {
+      const [sx, sy] = worldToScreen(x, R_EARTH + 2.4);
+      ctx.fillRect(sx, sy, 3, 3);
+    }
+  }
+}
+function drawTrail() {
+  if (trail.length < 2) return;
+  ctx.beginPath();
+  for (let i = 0; i < trail.length; i++) {
+    const s = worldToScreen(trail[i].x, trail[i].y);
+    if (i === 0) ctx.moveTo(s[0], s[1]); else ctx.lineTo(s[0], s[1]);
+  }
+  const s = worldToScreen(px, py);
+  ctx.lineTo(s[0], s[1]);
+  ctx.strokeStyle = "rgba(122, 223, 255, 0.75)";
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+}
+function drawPredict() {
+  let x = px, y = py, svx = vx, svy = vy;
+  const m = Math.max(veh.dry, mass);
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < 160; i++) {
+    const fr = frameOf(x, y);
+    const alt = altitudeOf(fr.r);
+    const spd = Math.hypot(svx, svy) || 0.0001;
+    const rho = density(Math.max(0, alt));
+    const g = MU / (fr.r * fr.r);
+    let ax = -fr.ux * g, ay = -fr.uy * g;
+    if (rho > 0) {
+      const drag = 0.5 * rho * spd * spd * CD * AREA;
+      ax -= svx / spd * drag / m;
+      ay -= svy / spd * drag / m;
+    }
+    svx += ax * 0.8;
+    svy += ay * 0.8;
+    x += svx * 0.8;
+    y += svy * 0.8;
+    if (i % 2 === 0) {
+      const s = worldToScreen(x, y);
+      if (!started) { ctx.moveTo(s[0], s[1]); started = true; }
+      else ctx.lineTo(s[0], s[1]);
+    }
+    if (altitudeOf(Math.hypot(x, y)) < 0) break;
+  }
+  ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = "rgba(240, 195, 106, 0.8)";
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+function drawShip() {
+  const f = frameOf(px, py);
+  const nx = Math.cos(pitch) * f.ux + Math.sin(pitch) * f.ex;
+  const ny = Math.cos(pitch) * f.uy + Math.sin(pitch) * f.ey;
+  let [sx1, sy1] = worldToScreen(px - nx * TAIL, py - ny * TAIL);
+  let [sx2, sy2] = worldToScreen(px + nx * TAIL, py + ny * TAIL);
+  let dx = sx2 - sx1, dy = sy2 - sy1;
+  let len = Math.hypot(dx, dy) || 1;
+  const minLen = 48;
+  if (len < minLen) {
+    const cx = (sx1 + sx2) / 2, cy = (sy1 + sy2) / 2;
+    const scale = minLen / len;
+    sx1 = cx - (dx * scale) / 2; sy1 = cy - (dy * scale) / 2;
+    sx2 = cx + (dx * scale) / 2; sy2 = cy + (dy * scale) / 2;
+    dx = sx2 - sx1; dy = sy2 - sy1; len = minLen;
+  }
+  const ang = Math.atan2(dy, dx);
+  const rad = Math.max(4.5, len * (RADIUS / LENGTH));
+  const shx = reduceMotion ? 0 : Math.sin(simT * 40) * shake * 3;
+  const shy = reduceMotion ? 0 : Math.cos(simT * 37) * shake * 2;
+  ctx.save();
+  ctx.translate(sx1 + shx, sy1 + shy);
+  ctx.rotate(ang);
+  const thrustOn = phase !== "pad" && fuel > 0.05 && throttle > 0.02 && (phase === "flying" || phase === "ending");
+  const warping = warpLeft > 0;
+  if ((thrustOn || warping) && phase !== "pad") {
+    const power = warping ? 1 : throttle;
+    const reach = len * (0.45 + power * 1.35) * (veh.thrust / 188000);
+    const flame = ctx.createLinearGradient(-reach, 0, 0, 0);
+    if (warping) {
+      flame.addColorStop(0, "rgba(210, 190, 255, 0)");
+      flame.addColorStop(0.45, "rgba(180, 150, 255, 0.35)");
+      flame.addColorStop(1, "rgba(245, 240, 255, 0.95)");
+    } else if (save.torch) {
+      flame.addColorStop(0, "rgba(80, 160, 255, 0)");
+      flame.addColorStop(0.5, "rgba(120, 190, 255, 0.45)");
+      flame.addColorStop(1, "rgba(255, 244, 230, 0.95)");
+    } else {
+      flame.addColorStop(0, "rgba(255, 120, 40, 0)");
+      flame.addColorStop(0.55, "rgba(255, 140, 50, 0.45)");
+      flame.addColorStop(1, "rgba(255, 236, 200, 0.95)");
+    }
+    ctx.fillStyle = flame;
+    ctx.beginPath();
+    ctx.moveTo(rad * 0.2, rad * 0.35);
+    ctx.lineTo(-reach, 0);
+    ctx.lineTo(rad * 0.2, -rad * 0.35);
+    ctx.closePath();
+    ctx.fill();
+    if (warping) {
+      ctx.strokeStyle = "rgba(210, 194, 255, 0.8)";
+      ctx.lineWidth = 2;
+      for (let i = 1; i <= 3; i++) {
+        const rr = rad * (1.4 + i * 0.7 + (simT * 3 % 1));
+        ctx.globalAlpha = 0.45 / i;
+        ctx.beginPath();
+        ctx.arc(len * 0.62, 0, rr, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  const bell = rad * 1.45;
+  ctx.beginPath();
+  ctx.moveTo(bell, rad * 0.62);
+  ctx.lineTo(0, rad * 1.15);
+  ctx.lineTo(0, -rad * 1.15);
+  ctx.lineTo(bell, -rad * 0.62);
+  ctx.closePath();
+  ctx.fillStyle = save.torch ? "#d39255" : "#8e969e";
+  ctx.fill();
+  ctx.fillStyle = "#12171c";
+  ctx.beginPath();
+  ctx.moveTo(bell * 0.3, rad * 0.5);
+  ctx.lineTo(bell * 0.15, rad * 2.15);
+  ctx.lineTo(len * 0.22, rad * 0.85);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(bell * 0.3, -rad * 0.5);
+  ctx.lineTo(bell * 0.15, -rad * 2.15);
+  ctx.lineTo(len * 0.22, -rad * 0.85);
+  ctx.closePath();
+  ctx.fill();
+  const bodyEnd = len - rad * 2.15;
+  ctx.fillStyle = "#e6e0d4";
+  ctx.fillRect(bell * 0.85, -rad, Math.max(1, bodyEnd - bell * 0.85), rad * 2);
+  ctx.fillStyle = "#2a3036";
+  ctx.fillRect(bell * 0.85, -rad, rad * 1.15, rad * 2);
+  if (save.lattice) {
+    ctx.strokeStyle = "rgba(122, 223, 255, 0.9)";
+    ctx.lineWidth = Math.max(1, rad * 0.14);
+    ctx.beginPath();
+    for (let x = bell * 2.2; x < bodyEnd - rad; x += rad * 1.1) {
+      ctx.moveTo(x, -rad * 0.8);
+      ctx.lineTo(x + rad * 0.45, 0);
+      ctx.lineTo(x, rad * 0.8);
+    }
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = "#24343c";
+    ctx.fillRect(len * 0.48, -rad, Math.max(2, rad * 0.28), rad * 2);
+  }
+  ctx.fillStyle = "#d9d3c8";
+  ctx.beginPath();
+  ctx.moveTo(bodyEnd, rad);
+  ctx.lineTo(len, 0);
+  ctx.lineTo(bodyEnd, -rad);
+  ctx.closePath();
+  ctx.fill();
+  if (save.warp) {
+    ctx.strokeStyle = warping ? "#f4eeff" : "rgba(190, 170, 255, 0.85)";
+    ctx.lineWidth = Math.max(1.5, rad * 0.2);
+    ctx.beginPath();
+    ctx.ellipse(len * 0.58, 0, rad * 0.42, rad * 1.35, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawVelocity() {
+  if (!lifted || phase === "pad") return;
+  const spd = Math.hypot(vx, vy);
+  if (spd < 8) return;
+  const [sx, sy] = worldToScreen(px, py);
+  const f = frameOf(px, py);
+  const east = vx * f.ex + vy * f.ey;
+  const up = vx * f.ux + vy * f.uy;
+  const screenX = east;
+  const screenY = -up;
+  const mag = Math.hypot(screenX, screenY) || 1;
+  const L = 42;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(sx + (screenX / mag) * L, sy + (screenY / mag) * L);
+  ctx.strokeStyle = "rgba(233, 246, 255, 0.8)";
+  ctx.lineWidth = 1.25;
+  ctx.stroke();
+}
+
+function ensureAudio() {
+  if (audio || save.muted) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  const actx = new AC();
+  const master = actx.createGain();
+  master.gain.value = 0.2;
+  master.connect(actx.destination);
+  const len = actx.sampleRate * 2;
+  const buf = actx.createBuffer(1, len, actx.sampleRate);
+  const data = buf.getChannelData(0);
+  let n = 0;
+  for (let i = 0; i < len; i++) {
+    n = (n + 0.03 * (Math.random() * 2 - 1)) / 1.03;
+    data[i] = n * 4;
+  }
+  const src = actx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const filter = actx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 280;
+  const gain = actx.createGain();
+  gain.gain.value = 0;
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(master);
+  src.start();
+  audio = { actx, master, filter, gain };
+  if (actx.state === "suspended") actx.resume();
+}
+function blip(freq, dur, type) {
+  if (!audio || save.muted) return;
+  const o = audio.actx.createOscillator();
+  const g = audio.actx.createGain();
+  o.type = type || "sine";
+  o.frequency.value = freq;
+  g.gain.value = 0.12;
+  g.gain.exponentialRampToValueAtTime(0.001, audio.actx.currentTime + dur);
+  o.connect(g);
+  g.connect(audio.master);
+  o.start();
+  o.stop(audio.actx.currentTime + dur);
+}
+function updateAudio() {
+  if (!audio) return;
+  const warp = warpLeft > 0;
+  const target = save.muted || phase === "pad" || phase === "debrief" ? 0 : (warp ? 0.55 : throttle * 0.7);
+  audio.gain.gain.setTargetAtTime(target, audio.actx.currentTime, 0.08);
+  audio.filter.frequency.setTargetAtTime(warp ? 160 : 240 + throttle * 640, audio.actx.currentTime, 0.1);
+}
+
+function tick(now) {
+  const real = Math.min(0.05, (now - lastReal) / 1000 || 0.016);
+  lastReal = now;
+  if (phase === "flying") {
+    acc += real * timeScale;
+    const DT = 1 / 60;
+    let n = 0;
+    while (acc >= DT && n < 90 && phase === "flying") {
+      step(DT);
+      acc -= DT;
+      n++;
+    }
+    if (n >= 90) acc = 0;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      /* aged in render */
+    }
+  } else acc = 0;
+  updateCamera(real);
+  render();
+  updateHud();
+  updateAudio();
+}
+function frame(now) {
+  try { tick(now); }
+  catch (err) {
+    console.error(err);
+    $("director").textContent = "Simulation error: " + err.message;
+  }
+  requestAnimationFrame(frame);
+}
+
+$("launch").onclick = () => launch();
+$("throttle").addEventListener("pointerdown", () => { sliderHold = true; ensureAudio(); });
+window.addEventListener("pointerup", () => { sliderHold = false; });
+$("throttle").addEventListener("input", (e) => {
+  throttle = Number(e.target.value) / 100;
+  ensureAudio();
+});
+document.querySelectorAll("[data-throttle]").forEach((btn) => {
+  btn.onclick = () => {
+    throttle = Number(btn.getAttribute("data-throttle"));
+    ensureAudio();
+  };
+});
+document.querySelectorAll("[data-pitch]").forEach((btn) => {
+  btn.onclick = () => { pitchCmd = Number(btn.getAttribute("data-pitch")) * Math.PI / 180; };
+});
+document.querySelectorAll("[data-time]").forEach((btn) => {
+  btn.onclick = () => {
+    timeScale = Number(btn.getAttribute("data-time"));
+    scaleTouched = true;
+  };
+});
+$("warpBtn").onclick = () => tryWarp();
+$("logBtn").onclick = () => onLog();
+$("muteBtn").onclick = () => {
+  save.muted = !save.muted;
+  writeSave();
+  if (!save.muted) ensureAudio();
+  renderChrome();
+};
+window.addEventListener("keydown", (e) => {
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  const key = e.key.toLowerCase();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) e.preventDefault();
+  if (key === "enter" && phase === "pad") { launch(); return; }
+  if (key === "m") { $("muteBtn").click(); return; }
+  if (phase !== "flying") return;
+  if (key === "w" || key === "arrowup") throttle = Math.min(1, throttle + 0.05);
+  else if (key === "s" || key === "arrowdown") throttle = Math.max(0, throttle - 0.05);
+  else if (key === " ") throttle = 1;
+  else if (key === "x") throttle = 0;
+  else if (key === "a" || key === "arrowleft") pitchCmd = Math.max(0, pitchCmd - 5 * Math.PI / 180);
+  else if (key === "d" || key === "arrowright") pitchCmd = Math.min(80 * Math.PI / 180, pitchCmd + 5 * Math.PI / 180);
+  else if (key === "1") { timeScale = 1; scaleTouched = true; }
+  else if (key === "2") { timeScale = 8; scaleTouched = true; }
+  else if (key === "3") { timeScale = 80; scaleTouched = true; }
+  else if (key === "f") tryWarp();
+  else if (key === "escape") onLog();
+  ensureAudio();
+});
+window.addEventListener("resize", resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+
+window.STARBASE = {
+  launch, buy, park, tryWarp, onLog,
+  setThrottle: (v) => { throttle = Math.max(0, Math.min(1, v)); },
+  setPitch: (deg) => { pitchCmd = deg * Math.PI / 180; },
+  setScale: (s) => { timeScale = s; scaleTouched = true; },
+  fast(seconds) {
+    const t0 = simT;
+    let guard = 0;
+    while (phase === "flying" && simT - t0 < seconds && guard < 200000) {
+      step(1 / 40);
+      guard++;
+    }
+  },
+  get phase() { return phase; },
+  get save() { return save; },
+  vehicle: () => specs(save),
+  snap() {
+    const f = frameOf(px, py);
+    return {
+      phase, alt: altitudeOf(f.r), spd: Math.hypot(vx, vy),
+      mass, fuel, throttle, pitch: pitch * 180 / Math.PI,
+      lifted, maxAlt, maxSpd, maxDown, money: save.money,
+      warpLeft, warpUsed, dry: veh.dry, thrust: veh.thrust, twr: veh.twr
+    };
+  }
+};
+
+resize();
+park();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
